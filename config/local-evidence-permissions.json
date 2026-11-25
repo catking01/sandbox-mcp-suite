@@ -1,0 +1,28 @@
+{
+  "schema_version": "sandbox_mcp_permissions.v1",
+  "profiles": {
+    "readonly": {
+      "tools": {
+        "project.list_projects": true,
+        "project.get_project_summary": true,
+        "project.get_project_progress": true,
+        "project.list_tree": true,
+        "project.read_text_file": true,
+        "project.search_text": true,
+        "project.get_manifest": true,
+        "project.get_git_status": true,
+        "project.get_git_diff": true,
+        "project.get_recent_artifacts": true,
+        "project.read_file_base64": true,
+        "project.list_archive_entries": true,
+        "project.read_archive_text_file": true,
+        "project.read_archive_file_base64": true,
+        "handoff.get_status": true,
+        "handoff.read_contract": true,
+        "handoff.read_receipt": true,
+        "handoff.read_artifact_manifest": true,
+        "handoff.read_schema": true
+      }
+    }
+  }
+}

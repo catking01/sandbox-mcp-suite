@@ -1,0 +1,10 @@
+{
+  "max_text_bytes": 524288000,
+  "max_binary_transfer_bytes": 524288000,
+  "max_inline_text_bytes": 1048576,
+  "max_mcp_chunk_bytes": 4194304,
+  "max_mcp_response_bytes": 8388608,
+  "binary_rejection": true,
+  "hash_algorithm": "sha256",
+  "remote_truth_claimed": false
+}

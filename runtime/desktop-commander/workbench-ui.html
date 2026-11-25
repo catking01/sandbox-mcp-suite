@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sandbox 本机工作台</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#fafaf8; --panel:#fff; --muted:#727670; --text:#242b27; --line:#e1e5de; --hover:#f0f3ec; --accent:#397453; --error:#ac3636; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    @media(prefers-color-scheme:dark) { :root { --bg:#191d1a; --panel:#202621; --muted:#a3afa6; --text:#ecf1ed; --line:#374038; --hover:#2c352d; --accent:#90c99b; --error:#ffaaa4; } }
+    :root[data-theme="dark"] { --bg:#191d1a; --panel:#202621; --muted:#a3afa6; --text:#ecf1ed; --line:#374038; --hover:#2c352d; --accent:#90c99b; --error:#ffaaa4; }
+    :root[data-theme="light"] { --bg:#fafaf8; --panel:#fff; --muted:#727670; --text:#242b27; --line:#e1e5de; --hover:#f0f3ec; --accent:#397453; --error:#ac3636; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); } button,input,textarea,select { font:inherit; color:inherit; }
+    button { border:1px solid var(--line); border-radius:6px; background:var(--panel); padding:6px 10px; cursor:pointer; white-space:nowrap; } button:hover { background:var(--hover); } button:disabled { cursor:default; opacity:.45; } button.primary { background:var(--accent); color:var(--panel); border-color:var(--accent); }
+    input,textarea,select { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:7px 9px; min-width:0; } input { width:100%; } textarea { resize:none; } :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    h1 { font-size:16px; margin:0; font-weight:650; letter-spacing:-.3px; } .muted { color:var(--muted); } .small { font-size:11px; } .mono { font-family:var(--mono); } .row { display:flex; gap:8px; align-items:center; } .grow { flex:1; min-width:0; } [hidden] { display:none!important; }
+    header { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; } .brand { width:32px; height:32px; background:var(--hover); border:1px solid var(--line); border-radius:9px; color:var(--accent); display:grid; place-items:center; font:600 17px var(--mono); } .badge { border:1px solid var(--line); border-radius:20px; padding:3px 9px; color:var(--muted); font-size:11px; }
+    #status { padding:7px 16px; min-height:34px; border-bottom:1px solid var(--line); color:var(--muted); } #status[data-error="true"] { color:var(--error); background:color-mix(in srgb,var(--error) 7%,var(--panel)); }
+    .pathbar { padding:10px 16px; border-bottom:1px solid var(--line); } .pathbar input { font-family:var(--mono); } .pathbar label { white-space:nowrap; }
+    .workspace { display:grid; grid-template-columns:250px minmax(0,1fr); height:430px; min-height:260px; } aside { border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; } .toolbar { padding:8px 10px; border-bottom:1px solid var(--line); min-height:44px; display:flex; align-items:center; gap:6px; } .toolbar button { padding:4px 7px; font-size:12px; } .toolbar strong { white-space:nowrap; }
+    .directory { padding:7px 10px; color:var(--muted); font:11px var(--mono); overflow-wrap:anywhere; } #file-list { padding:4px 6px; overflow:auto; flex:1; } .file-row { display:flex; width:100%; gap:8px; align-items:center; background:none; border:0; padding:6px 8px; border-radius:5px; text-align:left; } .file-row span:last-child { overflow:hidden; text-overflow:ellipsis; } .file-row.selected { background:var(--hover); color:var(--accent); } .file-icon { width:14px; color:var(--muted); font:12px var(--mono); flex-shrink:0; }
+    .side-footer { padding:8px 10px; border-top:1px solid var(--line); display:flex; gap:8px; align-items:center; } .side-footer input { width:auto; } #more-files { margin:5px 10px; }
+    .editor-area { display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--panel); } #file-tabs { display:flex; overflow-x:auto; min-height:36px; border-bottom:1px solid var(--line); padding:0 6px; gap:2px; } .file-tab { display:flex; align-items:center; border-bottom:2px solid transparent; } .file-tab.active { border-bottom-color:var(--accent); } .file-tab button { border:0; background:transparent; border-radius:0; padding:8px 5px; } .file-tab .close-tab { color:var(--muted); font-size:16px; padding-right:8px; }
+    .filemeta { padding:8px 12px; min-height:44px; border-bottom:1px solid var(--line); } #file-path { font:11px var(--mono); overflow-wrap:anywhere; } #editor-wrap { display:flex; flex:1; min-height:0; position:relative; } #line-numbers { margin:0; padding:12px 8px; width:48px; flex-shrink:0; overflow:hidden; background:var(--bg); color:var(--muted); text-align:right; font:12px/1.65 var(--mono); user-select:none; }
+    #editor { width:100%; height:100%; min-height:120px; border:0; border-radius:0; padding:12px; outline-offset:-2px; overflow:auto; white-space:pre; tab-size:2; font:12px/1.65 var(--mono); } #editor-empty { position:absolute; inset:0; display:grid; place-content:center; text-align:center; color:var(--muted); background:var(--panel); padding:20px; } #editor-empty strong { color:var(--text); font-size:15px; font-weight:550; margin-bottom:8px; } #draft-diff { flex:1; overflow:auto; margin:0; padding:12px; font:12px/1.65 var(--mono); white-space:pre-wrap; } .diff-add { color:var(--accent); } .diff-remove { color:var(--error); }
+    .bottom { border-top:1px solid var(--line); } .pane-tabs { display:flex; gap:4px; padding:6px 12px; border-bottom:1px solid var(--line); } .pane-tabs button { border:0; background:none; color:var(--muted); } .pane-tabs button[aria-selected="true"] { background:var(--hover); color:var(--text); }
+    .pane { padding:12px 16px; } .pane pre { font:12px/1.6 var(--mono); white-space:pre-wrap; overflow-wrap:anywhere; max-height:220px; overflow:auto; margin:10px 0 0; } #terminal-output { background:#17201c; color:#dfece2; min-height:130px; border-radius:7px; padding:12px; } .terminal-footer { margin-top:8px; } .terminal-footer input { font-family:var(--mono); } #session-list { min-width:140px; max-width:250px; } #terminal-state { font-size:11px; color:var(--muted); } .search-head input { font-family:var(--mono); } .changes-list { max-height:120px; overflow:auto; margin-top:8px; } .change-entry { display:block; width:100%; text-align:left; border:0; font:12px var(--mono); padding:5px 8px; } #git-diff { background:var(--panel); border:1px solid var(--line); padding:10px; border-radius:6px; }
+    #activity-list { max-height:180px; overflow:auto; } .activity { display:flex; gap:10px; padding:5px 0; border-bottom:1px solid var(--line); font-size:12px; overflow-wrap:anywhere; } .activity time { flex-shrink:0; color:var(--muted); } .activity.failed { color:var(--error); }
+    .chatbar { padding:12px 16px; border-top:1px solid var(--line); background:var(--panel); } .chatbar textarea { width:100%; min-height:62px; font:13px/1.5 inherit; } .chat-footer { margin-top:7px; justify-content:space-between; } .chat-footer .muted { font-size:11px; } .footer { padding:7px 16px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); }
+    dialog { width:min(480px,calc(100vw - 32px)); border:1px solid var(--line); border-radius:12px; padding:20px; color:var(--text); background:var(--panel); } dialog::backdrop { background:#0007; } dialog h2 { margin:0 0 8px; font-size:16px; } dialog p { color:var(--muted); overflow-wrap:anywhere; } dialog .row { margin-top:16px; justify-content:flex-end; }
+    @media(max-width:650px) { header { padding:10px; } .badge { display:none; } .pathbar { padding:8px; } .workspace { grid-template-columns:155px minmax(0,1fr); height:360px; } .toolbar { flex-wrap:wrap; } .toolbar .grow { display:none; } .filemeta { flex-wrap:wrap; padding:6px 8px; } .filemeta .grow { flex-basis:100%; } .pane { padding:10px; } .row.command-row { flex-wrap:wrap; } .command-row input { flex-basis:100%; } #session-list { flex:1; max-width:none; } .chat-footer { align-items:flex-start; } #line-numbers { width:32px; } .footer { padding:6px 10px; } }
+  </style>
+</head>
+<body>
+  <header><div class="brand" aria-hidden="true">&gt;_</div><div class="grow"><h1>Sandbox 本机工作台</h1><div class="muted small">文件 · 终端 · 搜索 · 改动</div></div><span class="badge">for test · 本机用户</span><button id="fullscreen" disabled>全屏</button></header>
+  <div id="status" role="status" aria-live="polite">正在连接当前 Chat…</div>
+  <form class="row pathbar" id="cwd-form"><label for="cwd" class="muted">工作目录</label><input id="cwd" placeholder="项目的绝对路径" autocomplete="off" spellcheck="false" aria-label="工作目录绝对路径"><button id="open-cwd" class="primary" disabled>打开</button></form>
+  <section class="workspace">
+    <aside aria-label="文件浏览器">
+      <div class="toolbar"><strong class="grow">文件</strong><button id="parent-directory" title="上一级目录" disabled>↑</button><button id="refresh-files" title="刷新文件列表" disabled>刷新</button><button id="new-file" disabled>＋文件</button><button id="new-folder" title="新建文件夹" disabled>＋目录</button></div>
+      <div id="directory-path" class="directory">尚未选择目录</div><div id="file-list"></div><button id="more-files" hidden>加载更多</button>
+      <label class="side-footer muted small"><input type="checkbox" id="show-hidden">显示隐藏文件</label>
+    </aside>
+    <main class="editor-area" aria-label="文本编辑器">
+      <div id="file-tabs" role="tablist" aria-label="已打开文件"></div>
+      <div class="row filemeta"><div class="grow"><div id="file-path">选择文件以打开</div><div id="file-info" class="muted small"></div></div><button id="reload-file" disabled>重新读取</button><button id="preview-diff" disabled>草稿改动</button><button id="save-file" class="primary" disabled>保存</button></div>
+      <div id="editor-wrap"><pre id="line-numbers" aria-hidden="true">1</pre><textarea id="editor" aria-label="文件内容" spellcheck="false" autocapitalize="off" autocomplete="off" disabled></textarea><div id="editor-empty"><strong>把本机项目带进当前 Chat</strong><span>从左侧打开文本文件，或在下方运行命令。</span></div></div>
+      <pre id="draft-diff" hidden aria-label="尚未保存的改动"></pre>
+    </main>
+  </section>
+  <section class="bottom">
+    <nav class="pane-tabs" role="tablist" aria-label="工具面板"><button data-pane="terminal" role="tab" aria-selected="true">终端</button><button data-pane="search" role="tab" aria-selected="false">搜索</button><button data-pane="git" role="tab" aria-selected="false">Git 改动</button><button data-pane="activity" role="tab" aria-selected="false">操作记录</button></nav>
+    <div class="pane" id="pane-terminal" role="tabpanel">
+      <form id="command-form" class="row command-row"><input id="command" class="mono grow" placeholder="输入要在工作目录中执行的命令" aria-label="终端命令" autocomplete="off" spellcheck="false"><button id="run-command" class="primary" disabled>运行</button><select id="session-list" aria-label="终端会话"><option value="">选择会话</option></select><button id="refresh-terminal" disabled>刷新</button><button id="stop-process" disabled>停止</button></form>
+      <pre id="terminal-output" tabindex="0">终端就绪后可运行命令。输出随会话刷新。</pre>
+      <form id="stdin-form" class="row terminal-footer"><input id="stdin" placeholder="向选中进程输入文本" aria-label="进程输入" autocomplete="off"><button id="send-stdin" disabled>发送输入</button><span id="terminal-state"></span></form>
+    </div>
+    <div class="pane" id="pane-search" role="tabpanel" hidden><form id="search-form" class="row search-head"><input id="search-query" placeholder="在工作目录中搜索文本" aria-label="搜索文字" spellcheck="false"><button id="start-search" class="primary" disabled>搜索</button><button id="stop-search" disabled>停止</button><button id="more-search" disabled>更多结果</button></form><pre id="search-output">搜索结果将显示在这里。</pre></div>
+    <div class="pane" id="pane-git" role="tabpanel" hidden><div class="row"><strong class="grow" id="git-summary">本地改动</strong><button id="refresh-git" disabled>刷新 Git</button><select id="git-kind" aria-label="Git 差异类型"><option value="unstaged">未暂存</option><option value="staged">已暂存</option></select></div><div class="changes-list" id="git-files"></div><pre id="git-diff">点击刷新以读取 Git 状态。</pre></div>
+    <div class="pane" id="pane-activity" role="tabpanel" hidden><div class="muted small">当前界面的操作结果；重新打开工作台后记录清空。</div><div id="activity-list"></div></div>
+  </section>
+  <form class="chatbar" id="chat-form"><label for="chat-prompt" class="small muted">交给当前 Chat</label><textarea id="chat-prompt" placeholder="例如：检查当前文件的问题，修复后运行相关测试。" aria-label="发送给当前 Chat 的任务"></textarea><div class="row chat-footer"><span class="muted">携带工作目录和选中文件；草稿需先保存。</span><button id="send-chat" class="primary" disabled>发送给 Chat</button></div></form>
+  <div class="footer">操作作用于这台 Mac。终端会话在 MCP 重启后失效。Chat 模型及额度由 ChatGPT 管理。</div>
+  <dialog id="input-dialog"><form id="dialog-form"><h2 id="dialog-title"></h2><p id="dialog-description"></p><input id="dialog-input" autocomplete="off" spellcheck="false" aria-label="名称"><div class="row"><button id="dialog-cancel" type="button">取消</button><button id="dialog-confirm" type="button" class="primary">确定</button></div></form></dialog>
+  <script>/* WORKBENCH_SCRIPT */</script>
+</body>
+</html>

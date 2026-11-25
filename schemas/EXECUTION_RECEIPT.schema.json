@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sandbox-mcp.local/schemas/EXECUTION_RECEIPT.schema.json",
+  "title": "Sandbox MCP Execution Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "plan_sha256",
+    "snapshot",
+    "status",
+    "executor",
+    "worktree",
+    "started_at",
+    "ended_at",
+    "modified_paths",
+    "unexpected_modified_paths",
+    "commands_log",
+    "test_results",
+    "diff_manifest",
+    "unresolved_items",
+    "claims",
+    "acceptance_verdict"
+  ],
+  "properties": {
+    "schema_version": { "const": "execution_receipt.v1" },
+    "task_id": { "type": "string" },
+    "plan_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "snapshot": { "$ref": "#/$defs/snapshot" },
+    "status": { "enum": ["completed", "failed", "blocked"] },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "executable", "exit_code"],
+      "properties": {
+        "kind": { "const": "codex-cli" },
+        "executable": { "type": "string" },
+        "version": { "type": ["string", "null"] },
+        "exit_code": { "type": ["integer", "null"] },
+        "stdout_hash": { "type": ["string", "null"] },
+        "stderr_hash": { "type": ["string", "null"] },
+        "last_message_hash": { "type": ["string", "null"] }
+      }
+    },
+    "worktree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "base_commit", "created"],
+      "properties": {
+        "path": { "type": ["string", "null"] },
+        "base_commit": { "type": ["string", "null"] },
+        "created": { "type": "boolean" }
+      }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "modified_paths": { "type": "array", "items": { "type": "string" } },
+    "unexpected_modified_paths": { "type": "array", "items": { "type": "string" } },
+    "commands_log": { "type": "string" },
+    "test_results": { "type": "string" },
+    "diff_manifest": { "type": "string" },
+    "unresolved_items": { "type": "array", "items": { "type": "string" } },
+    "claims": { "type": "array", "items": { "type": "string" } },
+    "acceptance_verdict": { "const": "not_produced_by_executor" }
+  },
+  "$defs": {
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_id", "base_commit", "tree_hash", "dirty", "status_hash"],
+      "properties": {
+        "snapshot_id": { "type": "string" },
+        "repository": { "type": "string" },
+        "branch": { "type": "string" },
+        "base_commit": { "type": "string" },
+        "tree_hash": { "type": "string" },
+        "dirty": { "type": "boolean" },
+        "status_hash": { "type": "string" }
+      }
+    }
+  }
+}

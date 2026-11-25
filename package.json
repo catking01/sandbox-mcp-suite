@@ -1,0 +1,71 @@
+{
+  "name": "sandbox-mcp-suite",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19 <27"
+  },
+  "scripts": {
+    "start": "node bin/sandbox-mcp.mjs console",
+    "open": "node bin/sandbox-mcp.mjs console --open",
+    "handoff": "node scripts/sandbox-handoff.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:commander": "npm test --prefix runtime/desktop-commander",
+    "test:workbench": "node --test runtime/desktop-commander/local-workbench.test.mjs",
+    "build:workbench:mac": "sh scripts/build-local-workbench.zsh",
+    "open:workbench:web": "node runtime/desktop-commander/local-workbench-server.mjs --open",
+    "test:tunnel": "npm run test:tunnel --prefix runtime/desktop-commander",
+    "test:all": "npm test && npm run test:commander && npm run test:workbench",
+    "doctor": "node bin/sandbox-mcp.mjs doctor",
+    "build:mac": "sh scripts/build-macos-apps.sh"
+  },
+  "dependencies": {
+    "proper-lockfile": "4.1.2"
+  },
+  "description": "Two independent local MCP profiles: scoped read-only evidence and a coding workbench.",
+  "license": "MIT",
+  "author": "catking01",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catking01/sandbox-mcp-suite.git"
+  },
+  "homepage": "https://github.com/catking01/sandbox-mcp-suite#readme",
+  "bugs": {
+    "url": "https://github.com/catking01/sandbox-mcp-suite/issues"
+  },
+  "bin": {
+    "sandbox-mcp": "bin/sandbox-mcp.mjs",
+    "sandbox-mcp-readonly": "bin/sandbox-mcp-readonly.mjs",
+    "sandbox-mcp-coding": "bin/sandbox-mcp-coding.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "config/*.json",
+    "console/",
+    "scripts/",
+    "schemas/",
+    "runtime/desktop-commander/*.mjs",
+    "runtime/desktop-commander/*.html",
+    "runtime/desktop-commander/package.json",
+    "runtime/desktop-commander/package-lock.json",
+    "runtime/desktop-commander/README.md",
+    "runtime/desktop-commander/UPSTREAM-LICENSE",
+    "app-src/",
+    "tests/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "THIRD_PARTY_NOTICES.md",
+    "CONTRIBUTING.md",
+    "ci/"
+  ],
+  "keywords": [
+    "mcp",
+    "stdio",
+    "local",
+    "read-only",
+    "developer-tools"
+  ]
+}

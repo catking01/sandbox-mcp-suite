@@ -1,0 +1,22 @@
+{
+  "denied_globs": [
+    ".env",
+    ".env.*",
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.p12",
+    "**/id_rsa",
+    "**/id_ed25519",
+    "**/.ssh/**",
+    "**/.aws/**",
+    "**/.gcp/**",
+    "**/.azure/**",
+    "**/node_modules/**",
+    "**/tools/**",
+    "**/.git/**",
+    "**/local_evidence_archives/**",
+    "**/.pytest_cache/**"
+  ]
+}

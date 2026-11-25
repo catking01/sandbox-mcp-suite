@@ -1,0 +1,7 @@
+{
+  "schema_version": "sandbox_devspace_tool_modes.v1",
+  "tool_mode": "all",
+  "access_mode": "host_user",
+  "runtime": "desktop-commander",
+  "upstream_version": "0.2.48"
+}

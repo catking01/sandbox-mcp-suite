@@ -1,0 +1,12 @@
+node_modules/
+artifacts/
+dist/
+*.log
+*.tgz
+*.app/
+.DS_Store
+.env
+.env.*
+.codex/
+tools/tunnel-client/tunnel-client
+tools/tunnel-client/*.zip

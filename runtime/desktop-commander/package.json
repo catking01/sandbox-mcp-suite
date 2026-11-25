@@ -1,0 +1,22 @@
+{
+  "name": "sandbox-mcp-for-test-local",
+  "version": "1.2.2",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@wonderwhy-er/desktop-commander": "0.2.48",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod-to-json-schema": "3.25.1"
+  },
+  "overrides": {
+    "@wonderwhy-er/desktop-commander@0.2.48": {
+      "sharp": "0.35.5"
+    }
+  },
+  "scripts": {
+    "prepare:local": "node prepare.mjs",
+    "test": "node --test parity.test.mjs workbench.test.mjs ssh-stdio.test.mjs stdin-epipe.test.mjs managed-stdio.test.mjs terminal-output.test.mjs terminal-buffer.test.mjs runtime-journal.test.mjs cancellation.test.mjs workbench-ui-concurrency.test.mjs",
+    "start": "node server.mjs",
+    "test:tunnel": "node --test tunnel-stdio.test.mjs"
+  }
+}

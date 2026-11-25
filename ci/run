@@ -1,0 +1,21 @@
+#!/bin/sh
+# Local CI entrypoint. No hosted jobs, model calls, credentials or live services.
+set -eu
+if [ "${1:-}" != selftest ] || [ "$#" -ne 1 ]; then
+  echo 'Usage: ./ci/run selftest' >&2
+  exit 2
+fi
+product_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+cd "$product_root"
+npm ci --ignore-scripts --no-audit --no-fund
+npm ci --ignore-scripts --no-audit --no-fund --prefix runtime/desktop-commander
+node runtime/desktop-commander/prepare.mjs
+npm run test:all
+if [ -n "${TUNNEL_CLIENT_BINARY:-}" ]; then
+  npm run test:tunnel
+else
+  echo 'Tunnel integration not run: set TUNNEL_CLIENT_BINARY to the tested official binary.'
+fi
+if [ "$(uname -s)" = Darwin ]; then
+  npm run build:mac
+fi

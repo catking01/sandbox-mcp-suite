@@ -1,0 +1,145 @@
+import os from 'node:os';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { processGroupExists } from './process-group.mjs';
+import { defaultShell, browserCommand } from './platform.mjs';
+const entry = fileURLToPath(new URL('./server.mjs', import.meta.url));
+const text = r => r.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+const quote = s => "'" + s.replaceAll("'", "'\\''") + "'";
+const pause = ms => new Promise(r => setTimeout(r, ms));
+function alive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
+test('platform defaults support macOS and Linux and reject Windows explicitly', () => {
+  assert.equal(defaultShell('darwin'), '/bin/zsh');
+  assert.equal(defaultShell('linux'), '/bin/bash');
+  assert.equal(browserCommand('darwin'), '/usr/bin/open');
+  assert.equal(browserCommand('linux'), 'xdg-open');
+  assert.throws(() => defaultShell('win32'), /not supported/);
+});
+test('process-group probe treats EPERM as live and ESRCH as gone', () => {
+  const denied = () => { const error = new Error('permission denied'); error.code = 'EPERM'; throw error; };
+  const gone = () => { const error = new Error('missing'); error.code = 'ESRCH'; throw error; };
+  assert.equal(processGroupExists(123, denied), true);
+  assert.equal(processGroupExists(123, gone), false);
+});
+async function fixture(t, extraEnv = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-commander-parity-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-commander-outside-'));
+  const client = new Client({name:'parity',version:'1'},{});
+  const transport = new StdioClientTransport({command:process.execPath,args:[entry],env:{HOME:process.env.HOME,PATH:process.env.PATH,SANDBOX_COMMANDER_STATE_DIR:path.join(root,'state'),SANDBOX_WORKBENCH_SYNC_FILE:path.join(root,'events.jsonl'),...extraEnv},stderr:'pipe'});
+  let errors=''; transport.stderr?.on('data',d=>{errors+=d;});
+  await client.connect(transport);
+  t.after(async()=>{await client.close(); fs.rmSync(root,{recursive:true,force:true}); fs.rmSync(outside,{recursive:true,force:true});});
+  async function call(name,args={}) { const r=await client.callTool({name,arguments:args}); assert.ok(!r.isError,`${name}: ${text(r)}\n${errors}`); return text(r); }
+  return {root,outside,client,call};
+}
+test('file operations and edit -> test -> streamed output -> exit code, outside project roots', {timeout:30000}, async t=>{
+  const {outside,call,client}=await fixture(t);
+  const tools = (await client.listTools()).tools;
+  assert.equal(tools.length,27);
+  assert.equal(tools.filter(tool => !tool.name.startsWith('workbench_') && tool.name !== 'open_workbench').length,19);
+  const dir=path.join(outside,'work'); await call('create_directory',{path:dir});
+  const file=path.join(dir,'check.mjs');
+  await call('write_file',{path:file,content:"import assert from 'node:assert/strict';\nconst actual = 1;\nconsole.log('BEGIN');\nawait new Promise(r=>setTimeout(r,400));\nconsole.log('FINISH');\nassert.equal(actual, 2);\n"});
+  await call('edit_block',{file_path:file,old_string:'const actual = 1;',new_string:'const actual = 2;',expected_replacements:1});
+  assert.match(await call('read_file',{path:file,offset:-2,length:2}),/assert.equal/);
+  assert.match(await call('read_multiple_files',{paths:[file]}),/actual = 2/);
+  assert.match(await call('get_file_info',{path:file}),/size/i);
+  assert.match(await call('list_directory',{path:dir,depth:1}),/check.mjs/);
+  const start=await call('start_process',{command:`cd ${quote(dir)} && ${quote(process.execPath)} --test check.mjs`,timeout_ms:50});
+  const pid=Number(start.match(/PID (\d+)/)?.[1]); assert.ok(pid,start);
+  let output=start;
+  for(let i=0;i<15;i++){output+='\n'+await call('read_process_output',{pid,timeout_ms:100}); if(/exit code:? 0/i.test(output))break; await pause(80);}
+  assert.match(output,/BEGIN/); assert.match(output,/FINISH/); assert.match(output,/exit code:? 0/i);
+  const moved=path.join(dir,'moved.mjs'); await call('move_file',{source:file,destination:moved});
+  await call('write_file',{path:moved,content:'// APPENDED\n',mode:'append'});
+  assert.match(fs.readFileSync(moved,'utf8'),/APPENDED/);
+  const search=await call('start_search',{path:outside,pattern:'APPENDED',searchType:'content',timeout_ms:1000});
+  const id=search.match(/session: (\S+)/)?.[1]; assert.ok(id,search);
+  const results=await call('get_more_search_results',{sessionId:id,offset:0,length:20}); assert.match(search+results,/APPENDED/);
+  await call('list_searches'); await call('stop_search',{sessionId:id});
+  const beforeInvalid=fs.readFileSync(moved,'utf8');
+  const invalid=await client.callTool({name:'edit_block',arguments:{file_path:moved,old_string:'NOT_PRESENT',new_string:'x',expected_replacements:1}}); assert.match(text(invalid),/not|match|find/i); assert.equal(fs.readFileSync(moved,'utf8'),beforeInvalid);
+  const unknown=await client.callTool({name:'write_pdf',arguments:{}}); assert.ok(unknown.isError);
+  const negative=await client.callTool({name:'kill_process',arguments:{pid:-1}}); assert.ok(negative.isError);
+  assert.match(await call('read_file',{path:moved}),/APPENDED/);
+});
+test('oversized file collections are refused before Zod 3 parsing and leave the server usable', {timeout:15000}, async t => {
+  const { outside, call, client } = await fixture(t);
+  const schema = (await client.listTools()).tools.find(tool => tool.name === 'read_multiple_files').inputSchema;
+  assert.equal(schema.properties.paths.maxItems, 100);
+  const file = path.join(outside, 'collection.txt');
+  fs.writeFileSync(file, 'COLLECTION_OK');
+  const tooMany = await client.callTool({ name: 'read_multiple_files', arguments: { paths: Array(100_000).fill(null) } });
+  assert.equal(tooMany.isError, true);
+  assert.match(text(tooMany), /at most 100 paths/);
+  assert.ok(text(tooMany).length < 200, 'the refusal must not collect an error per array element');
+  const valid = await call('read_multiple_files', { paths: Array(100).fill(file) });
+  assert.equal(valid.match(/COLLECTION_OK/g)?.length, 100);
+  assert.match(await call('read_file', { path: file }), /COLLECTION_OK/);
+});
+test('image reads preserve bytes and PDF image conversion works with the patched sharp dependency', {timeout:30000}, async t => {
+  const upstreamRequire = createRequire(new URL('./node_modules/@wonderwhy-er/desktop-commander/package.json', import.meta.url));
+  const sharp = upstreamRequire('sharp');
+  const { PDFDocument } = upstreamRequire('pdf-lib');
+  const { outside, client } = await fixture(t);
+  const png = await sharp({ create: { width: 1600, height: 8, channels: 3, background: '#eb3453' } }).png().toBuffer();
+  const imagePath = path.join(outside, 'image.png');
+  fs.writeFileSync(imagePath, png);
+  const imageResult = await client.callTool({ name: 'read_file', arguments: { path: imagePath } });
+  assert.ok(!imageResult.isError, text(imageResult));
+  const original = imageResult.content.find(content => content.type === 'image');
+  assert.equal(original?.mimeType, 'image/png');
+  assert.deepEqual(Buffer.from(original.data, 'base64'), png);
+
+  const pdf = await PDFDocument.create();
+  const embedded = await pdf.embedPng(png);
+  pdf.addPage([1600, 20]).drawImage(embedded, { x: 0, y: 0, width: 1600, height: 8 });
+  const pdfPath = path.join(outside, 'embedded-image.pdf');
+  fs.writeFileSync(pdfPath, await pdf.save());
+  const pdfResult = await client.callTool({ name: 'read_file', arguments: { path: pdfPath } });
+  assert.ok(!pdfResult.isError, text(pdfResult));
+  const converted = pdfResult.content.find(content => content.type === 'image');
+  assert.equal(converted?.mimeType, 'image/webp', text(pdfResult));
+  const metadata = await sharp(Buffer.from(converted.data, 'base64')).metadata();
+  assert.equal(metadata.width, 1200);
+  assert.equal(metadata.height, 6);
+});
+test('interactive input, process listing, managed descendant cancellation and external PID kill', {timeout:30000},async t=>{
+  const tunnel = spawn('/bin/sleep', ['90']);
+  t.after(() => { if (alive(tunnel.pid)) tunnel.kill('SIGKILL'); });
+  const {root,call,client}=await fixture(t,{SANDBOX_COMMANDER_TUNNEL_PID:String(tunnel.pid)});
+  const denied=await client.callTool({name:'kill_process',arguments:{pid:tunnel.pid}});
+  assert.equal(denied.isError,true);
+  assert.match(text(denied),/supervisor, or Tunnel/);
+  assert.equal(alive(tunnel.pid),true);
+  const code="process.stdin.on('data', b => { console.log('ANSWER:'+b.toString().trim()); }); console.log('READY');";
+  const r=await call('start_process',{command:`exec ${quote(process.execPath)} -e ${quote(code)}`,timeout_ms:100});
+  const pid=Number(r.match(/PID (\d+)/)?.[1]);assert.ok(pid,r);
+  assert.match(await call('interact_with_process',{pid,input:'hello',timeout_ms:200}),/ANSWER:hello/);
+  assert.match(await call('list_sessions'),new RegExp(String(pid)));
+  assert.match(await call('list_processes'),new RegExp(String(pid)));
+  await call('force_terminate',{pid}); assert.equal(alive(pid),false);
+  const pidfile=path.join(root,'child.pid');
+  const parent=await call('start_process',{command:`sleep 90 & echo $! > ${quote(pidfile)}; wait`,timeout_ms:100});
+  const parentPid=Number(parent.match(/PID (\d+)/)?.[1]);assert.ok(parentPid,parent);
+  const childPid=Number(fs.readFileSync(pidfile,'utf8'));assert.ok(alive(childPid));
+  await call('force_terminate',{pid:parentPid});assert.equal(alive(childPid),false);
+  const external=spawn('/bin/sleep',['90']);t.after(()=>{if(alive(external.pid))external.kill('SIGKILL');});
+  await call('kill_process',{pid:external.pid});for(let i=0;i<20&&alive(external.pid);i++)await pause(50);assert.equal(alive(external.pid),false);
+});
+test('nonzero exit remains visible; closing MCP cleans live process groups', {timeout:20000},async t=>{
+  const {call,client}=await fixture(t);
+  const fail=await call('start_process',{command:'exit 7',timeout_ms:100});
+  const failPid=Number(fail.match(/PID (\d+)/)?.[1]);assert.ok(failPid,fail);
+  assert.match(await call('read_process_output',{pid:failPid,timeout_ms:100}),/exit code:? 7/i);
+  const active=await call('start_process',{command:'sleep 90 & wait',timeout_ms:100});
+  const pid=Number(active.match(/PID (\d+)/)?.[1]);assert.ok(pid,active);
+  await client.close();for(let i=0;i<30&&alive(pid);i++)await pause(100);assert.equal(alive(pid),false);
+});
